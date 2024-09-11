@@ -1,47 +1,53 @@
 import { createFileRoute } from '@tanstack/react-router'
 
-import { useState, useCallback } from 'react'
-import { useDropzone } from 'react-dropzone'
-import { Button } from "@/components/ui/button"
+import { useState } from 'react'
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card"
 import { QRCodeCard } from '@/components/qr-card'
-import { Upload, Image as ImageIcon, Loader2 } from 'lucide-react';
 
-import {useLocalStorage} from "@/lib/useLocalStorage";
+import { type Options } from 'qr-code-styling';
+import { useLocalStorage } from "@/lib/useLocalStorage";
 
+import { QROptions } from '@/components/card-options'
+import { ColorPicker } from '@/components/color-picker'
 
 export const Route = createFileRoute('/')({
   component: Index,
 })
 
 function Index() {
-  const [text, setText] = useState('')
-  const [image, setImage] = useState<string | null>(null)
-  const [isGenerating, setIsGenerating] = useState(false)
+  const [text, _setText] = useState('')
+
+  const setText = (text: string) => {
+    _setText(text)
+    setQrOptions(options => ({
+      ...options, data: text
+    }))
+  }
 
   const [allCodes, setAllCodes] = useLocalStorage<string[]>("codes", []);
 
-
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    const file = acceptedFiles[0]
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      setImage(event.target?.result as string)
-    }
-    reader.readAsDataURL(file)
-  }, [])
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, accept: { 'image/*': [] }, maxFiles: 1 })
+  const [qrOptions, setQrOptions] = useState<Options>({
+    width: 1000,
+    height: 1000,
+    type: "svg",
+    qrOptions: {
+      errorCorrectionLevel: "H",
+    },
+    dotsOptions: {
+      color: "#000000",
+      type: "square"
+    },
+    backgroundOptions: {
+      color: "#FFFFFF",
+    },
+  })
 
   const generateQRCodes = async () => {
     if (!text) return
-    setAllCodes([...allCodes, text])
+    setAllCodes([...allCodes, JSON.stringify(qrOptions)])
     setText('')
-    setIsGenerating(true)
-    // Add your QR code generation logic here
-    setIsGenerating(false)
   }
 
   return (
@@ -62,52 +68,43 @@ function Index() {
               placeholder="Enter text for QR code"
             />
           </div>
-          {/* <div
-            {...getRootProps()}
-            className={`border-2 border-dashed rounded-md p-6 text-center transition-colors duration-200 ease-in-out ${
-              isDragActive ? 'border-primary bg-primary/10' : 'border-border'
-            }`}
-          >
-            <div className="space-y-1 text-center">
-              <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
-              <div className="flex text-sm text-muted-foreground justify-center">
-                <label htmlFor="file-upload" className="relative cursor-pointer font-medium text-primary hover:text-primary/80">
-                  <span>Upload a file</span>
-                  <input {...getInputProps()} />
-                </label>
-                <p className="pl-1">or drag and drop</p>
-              </div>
-              <p className="text-xs text-muted-foreground">PNG, JPG, GIF up to 10MB</p>
-            </div>
-          </div> */}
-          {image && (
-            <div className="flex justify-center">
-              <div className="relative w-40 h-40 rounded-lg overflow-hidden">
-                <img src={image} alt="Uploaded" className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-background/50 flex items-center justify-center">
-                  <ImageIcon className="h-8 w-8 text-foreground" />
-                </div>
-              </div>
-            </div>
-          )}
-          <Button
-            onClick={generateQRCodes}
-            className="w-full"
-            disabled={isGenerating || (!text && !image)}
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              'Save QR Code'
-            )}
-          </Button>
+
         </CardContent>
       </Card>
 
-      {text && <QRCodeCard text={text} />}
+      <div className="flex items-center w-full flex-col mt-8">
+        <div className="flex items-center justify-center w-full gap-x-8">
+          <ColorPicker defaultValue='#000000' onChange={color =>
+            setQrOptions(options => ({
+              ...options, dotsOptions: {
+                ...options.dotsOptions,
+                color
+              }
+            }))
+          } />
+          <div className="flex flex-col items-center gap-y-8">
+            <QROptions onValueChange={(value) => {
+              console.log(value)
+              setQrOptions(options => ({
+                ...options, dotsOptions: {
+                  ...options.dotsOptions,
+                  type: value
+                }
+              }))
+            }} />
+            {<QRCodeCard text={text} qrOptions={qrOptions} onSave={generateQRCodes} />}
+          </div>
+          <ColorPicker defaultValue='#FFFFFF' onChange={color =>
+            setQrOptions(options => ({
+              ...options, backgroundOptions: {
+                ...options.backgroundOptions,
+                color
+              }
+            }))
+          } />
+        </div>
+      </div>
+
     </div>
   )
 }
